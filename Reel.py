@@ -69,17 +69,31 @@ class Reel:
         self.set_rotation_offset()
         self.spool_shape.unsafe_set_radius(self.get_cur_radius())
 
-    def update_distance(self, object: pymunk.Body):
-        to_x, to_y = self.pos
+    def update_distance(self, object: pymunk.Body, active=True):
+        to_x, to_y = self.compute_connection_point(object)
         assert (isinstance(to_x, float) or isinstance(to_x, int)) and (isinstance(to_y, float) or isinstance(to_y, int))
         at_x, at_y = object.position
         if self.screen is not None:
             tether_pos = object.local_to_world(self.tether_offset)
-            pygame.draw.lines(self.screen, (153, 43, 43), False, [self.pos, tether_pos])
+            color = (153, 43, 43) if active else (50, 43, 43)
+            pygame.draw.lines(self.screen, color, False, [(to_x, to_y), tether_pos])
         direction_vec = np.array([to_x - at_x, to_y - at_y])
         self.last_used_length = self.curr_used_length
         self.curr_used_length = np.linalg.norm(direction_vec)
         return direction_vec
+
+    def compute_connection_point(self, object: pymunk.Body):
+        circle_x, circle_y = self.pos
+        assert (isinstance(circle_x, float) or isinstance(circle_x, int)) and (isinstance(circle_y, float) or isinstance(circle_y, int))
+        at_x, at_y = object.position
+        x_diff, y_diff = at_x - circle_x, at_y - circle_y
+        cur_rad = self.get_cur_radius()
+        numer = y_diff - np.sqrt(x_diff**2 + y_diff**2 - cur_rad**2)
+        denom = cur_rad + x_diff
+        t = 2*np.arctan2(numer, denom)
+        connection_x = circle_x + cur_rad*np.cos(t)
+        connection_y = circle_y + cur_rad*np.sin(t)
+        return connection_x, connection_y
 
     def get_force(self, object: pymunk.Body, factor: float = 1):
         direction_vec = self.update_distance(object)
@@ -116,11 +130,11 @@ class ReactiveReel(Reel):
         self.constraint = pymunk.SlideJoint(self.spool, self.object, (0, 0), (0, 0), 0, self.tether_length)
 
     def step(self):
-        self.update_distance(self.object)
+        self.update_distance(self.object, active=self.engaged)
         self.update_view()
         if not self.engaged and self.curr_used_length > self.distance_cutoff:
             self.engaged = True
         if self.engaged:
-            force = self.get_force(self.object, 2000)
+            force = self.get_force(self.object, 1000)
             application_point = self.object.local_to_world((-5, 0))
             self.object.apply_force_at_world_point(force, application_point)
