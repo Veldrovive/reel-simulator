@@ -15,7 +15,7 @@ clock = pygame.time.Clock()
 
 space = pymunk.Space()
 space.gravity = (0.0, 900.0)
-space.damping = 0.5
+space.damping = 0.3
 draw_options = pymunk.pygame_util.DrawOptions(screen)
 
 phone = pymunk.Body()
@@ -75,7 +75,7 @@ while True:
 
     # damp_rotation(phone, 100000)
     auto_reel.step()
-    print(phone.torque, phone.force)
+    # print(phone.torque, phone.force)
     # phone.torque /= 100
     space.step(1.0 / FPS)
 
